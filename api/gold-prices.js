@@ -14,7 +14,31 @@ app.use((req, res, next) => {
 });
 
 async function fetchGoldPrice() {
+  const METAL_PRICE_API_KEY = process.env.METAL_PRICE_API_KEY;
+  
   try {
+    if (METAL_PRICE_API_KEY) {
+      try {
+        const response = await axios.get(
+          `https://api.metalpriceapi.com/v1/latest?api_key=${METAL_PRICE_API_KEY}&base=USD&currencies=XAU`
+        );
+        
+        if (response.data.success && response.data.rates?.XAU) {
+          const ozPrice = 1 / response.data.rates.XAU;
+          const gramPrice = ozPrice / 31.1035;
+          
+          return {
+            spotPrice: Math.round(ozPrice * 100) / 100,
+            pricePerGram: Math.round(gramPrice * 100) / 100,
+            lastUpdated: new Date().toISOString(),
+            market: "Live Market (Premium)"
+          };
+        }
+      } catch (premiumError) {
+        console.log('Premium API failed, trying free API');
+      }
+    }
+    
     const response = await axios.get('https://data-asg.goldprice.org/dbXRates/USD');
     const ozPrice = parseFloat(response.data.items[0].xauPrice);
     const gramPrice = ozPrice / 31.1035;
