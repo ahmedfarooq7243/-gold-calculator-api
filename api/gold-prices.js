@@ -1,172 +1,186 @@
 // ============================================
-// RAILWAY BACKEND - SEO Optimized Implementation
+// RAILWAY BACKEND - FIXED & OPTIMIZED
+// Timer: 60 seconds | SEO: Enabled | FAQs: Removed
 // ============================================
-// Yeh code aapke Railway backend mein add karna hai
 
 const express = require('express');
 const cors = require('cors');
-const compression = require('compression');
 const axios = require('axios');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
-app.use(cors());
-app.use(compression()); // Gzip compression for faster response
+// ============================================
+// MIDDLEWARE
+// ============================================
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  credentials: true
+}));
 app.use(express.json());
+
+// ============================================
+// GOLD API CONFIGURATION
+// ============================================
+const GOLD_API_KEY = 'a19593b0402252df32cc48ea2b1d489b';
+const METALS_API_URL = `https://api.metals.dev/v1/latest?api_key=${GOLD_API_KEY}&currency=USD&unit=toz`;
 
 // ============================================
 // LIVE GOLD PRICE FETCHER
 // ============================================
 async function fetchGoldPrice() {
   try {
-    const response = await axios.get('https://data-asg.goldprice.org/dbXRates/USD');
-    const ozPrice = parseFloat(response.data.items[0].xauPrice);
-    const gramPrice = ozPrice / 31.1035;
+    console.log('📊 Fetching gold price from Metals.dev API...');
     
-    return {
-      spotPrice: Math.round(ozPrice * 100) / 100,
-      pricePerGram: Math.round(gramPrice * 100) / 100,
-      lastUpdated: new Date().toISOString(),
-      market: "Live Market"
-    };
+    const response = await axios.get(METALS_API_URL, {
+      timeout: 10000,
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'GoldCalculator/1.0'
+      }
+    });
+
+    if (response.data && response.data.metals && response.data.metals.gold) {
+      const ozPrice = parseFloat(response.data.metals.gold);
+      const gramPrice = ozPrice / 31.1035;
+
+      console.log(`✅ Gold price fetched: $${ozPrice}/oz`);
+
+      return {
+        spotPrice: Math.round(ozPrice * 100) / 100,
+        pricePerGram: Math.round(gramPrice * 100) / 100,
+        lastUpdated: new Date().toISOString(),
+        market: "Live Market",
+        source: "metals.dev"
+      };
+    } else {
+      throw new Error('Invalid API response structure');
+    }
   } catch (error) {
-    console.error('Gold price fetch error:', error.message);
-    // Fallback data agar API fail ho jaye
+    console.error('❌ Gold API Error:', error.message);
+    
+    // Fallback price
     return {
-      spotPrice: 3760.69,
-      pricePerGram: 120.91,
+      spotPrice: 2650.00,
+      pricePerGram: 85.20,
       lastUpdated: new Date().toISOString(),
-      market: "Fallback Data"
+      market: "Estimated (Fallback)",
+      source: "fallback"
     };
   }
 }
 
 // ============================================
-// SEO SNAPSHOT ENDPOINT - Google ke liye
+// SEO SNAPSHOT ENDPOINT (NO FAQ - WordPress handles it)
 // ============================================
-app.get('/seo-snapshot', (req, res) => {
-  res.set('Content-Type', 'text/html; charset=UTF-8');
-  res.set('Cache-Control', 'public, max-age=3600'); // 1 hour cache
-  
-  res.send(`
+app.get('/seo-snapshot', async (req, res) => {
+  try {
+    const goldData = await fetchGoldPrice();
+
+    res.set({
+      'Content-Type': 'text/html; charset=UTF-8',
+      'Cache-Control': 'public, max-age=300',
+      'X-Robots-Tag': 'index, follow'
+    });
+
+    res.send(`
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gold Calculator - Live Gold Price Calculator 2025</title>
-  <meta name="description" content="Free gold calculator with live rates updated every 10 minutes. Calculate gold value in grams, ounces, tola, pennyweight, kilograms. Supports 8K-24K gold purity.">
+  <meta name="description" content="Free gold calculator with live rates updated every minute. Calculate gold value in grams, ounces, tola, pennyweight. Current: $${goldData.spotPrice}/oz">
+  <meta name="keywords" content="gold calculator, gold price, 22k gold, 24k gold, tola, troy ounce">
 </head>
 <body>
   <main>
-    <h1>Live Gold Price Calculator - Real-Time Gold Value Calculator</h1>
-    
-    <p>Calculate the exact value of your gold in grams, ounces, tola, pennyweight, and kilograms using real-time market prices updated every 10 minutes. Our free gold calculator provides instant, accurate valuations based on current spot prices.</p>
+    <h1>Live Gold Price Calculator - Real-Time Gold Value</h1>
 
-    <h2>How the Gold Calculator Works</h2>
+    <div class="price-info">
+      <p><strong>Current Gold Price:</strong> $${goldData.spotPrice} per troy ounce</p>
+      <p><strong>Price per Gram:</strong> $${goldData.pricePerGram}</p>
+      <p><strong>Last Updated:</strong> ${new Date(goldData.lastUpdated).toLocaleString()}</p>
+    </div>
+
+    <h2>How to Use the Gold Calculator</h2>
     <ol>
-      <li><strong>Enter Weight:</strong> Input the weight of your gold and choose your preferred unit (grams, ounces, tola, pennyweight, or kilograms)</li>
-      <li><strong>Select Metal Purity:</strong> Choose the karat of your gold (8K, 10K, 14K, 18K, 22K, or 24K)</li>
-      <li><strong>Get Instant Value:</strong> See real-time market value and estimated payout amounts instantly</li>
+      <li><strong>Enter Weight:</strong> Input gold weight</li>
+      <li><strong>Select Unit:</strong> Grams, ounces, tola, pennyweight, kg</li>
+      <li><strong>Choose Purity:</strong> 8K to 24K karat</li>
+      <li><strong>Calculate:</strong> Get instant market value</li>
     </ol>
 
-    <h2>Supported Gold Purity Levels (Karats)</h2>
+    <h2>Supported Units</h2>
     <ul>
-      <li><strong>24K Gold</strong> – 99.9% pure gold (999 fineness) - Investment grade</li>
-      <li><strong>22K Gold</strong> – 91.6% pure gold (916 fineness) - Popular in jewelry</li>
-      <li><strong>18K Gold</strong> – 75% pure gold (750 fineness) - High-quality jewelry</li>
-      <li><strong>14K Gold</strong> – 58.3% pure gold (585 fineness) - Durable jewelry</li>
-      <li><strong>10K Gold</strong> – 41.7% pure gold (417 fineness) - Affordable option</li>
-      <li><strong>8K Gold</strong> – 33.3% pure gold (333 fineness) - Budget jewelry</li>
+      <li><strong>Grams (g)</strong> - Metric unit</li>
+      <li><strong>Troy Ounce (oz)</strong> - 31.1035 grams</li>
+      <li><strong>Tola</strong> - 11.66 grams (South Asian)</li>
+      <li><strong>Pennyweight (dwt)</strong> - 1.555 grams</li>
+      <li><strong>Kilogram (kg)</strong> - 1000 grams</li>
     </ul>
 
-    <h2>Weight Units Supported</h2>
+    <h2>Gold Purity Levels</h2>
     <ul>
-      <li><strong>Grams (g)</strong> - Most common metric unit</li>
-      <li><strong>Troy Ounces (oz)</strong> - Standard for precious metals (31.1035 grams)</li>
-      <li><strong>Tola</strong> - Traditional South Asian unit (11.66 grams)</li>
-      <li><strong>Pennyweight (dwt)</strong> - Jeweler's unit (1.555 grams)</li>
-      <li><strong>Kilograms (kg)</strong> - For large quantities (1000 grams)</li>
+      <li><strong>24K</strong> – 99.9% pure (investment)</li>
+      <li><strong>22K</strong> – 91.6% pure (jewelry)</li>
+      <li><strong>18K</strong> – 75% pure</li>
+      <li><strong>14K</strong> – 58.3% pure</li>
+      <li><strong>10K</strong> – 41.7% pure</li>
+      <li><strong>8K</strong> – 33.3% pure</li>
     </ul>
 
-    <h2>Frequently Asked Questions (FAQ)</h2>
-    
-    <h3>How accurate is this gold calculator?</h3>
-    <p>Our gold calculator uses live spot prices updated every 10 minutes from major gold markets. The calculation multiplies your weight × purity percentage × current spot price per troy ounce, automatically converting to your selected unit for maximum accuracy.</p>
-
-    <h3>What's the difference between 22K and 24K gold?</h3>
-    <p>24K gold is 99.9% pure (best for investment), while 22K gold is 91.6% pure and commonly used in jewelry because it's more durable. 22K gold has a slightly lower value per gram due to the lower gold content.</p>
-
-    <h3>How is gold purity measured?</h3>
-    <p>Gold purity is measured in karats (K) or fineness. 24K = 100% pure, 22K = 91.6% (916 fineness), 18K = 75% (750 fineness), and so on. Higher karat means more pure gold content and higher value.</p>
-
-    <h3>Can I use this calculator for selling gold?</h3>
-    <p>Yes! Our calculator shows both the market value (spot price) and estimated payout amounts. Buyers typically pay 70-95% of spot value depending on quantity and purity. Use this as a reference when negotiating.</p>
-
-    <h3>How often are gold prices updated?</h3>
-    <p>Gold prices in our calculator are updated every 10 minutes based on international spot prices from major trading markets including London, New York, and Zurich.</p>
-
-    <h3>What is troy ounce vs regular ounce?</h3>
-    <p>A troy ounce (used for precious metals) weighs 31.1035 grams, while a regular (avoirdupois) ounce weighs 28.35 grams. Always use troy ounces for gold calculations for accuracy.</p>
-
-    <h2>Why Use Our Gold Calculator?</h2>
-    <ul>
-      <li>✅ Real-time prices updated every 10 minutes</li>
-      <li>✅ Multiple weight units (grams, ounces, tola, pennyweight, kg)</li>
-      <li>✅ All gold purities from 8K to 24K supported</li>
-      <li>✅ Instant calculations with no registration required</li>
-      <li>✅ Mobile-friendly and easy to use</li>
-      <li>✅ Free forever - no hidden charges</li>
-    </ul>
-
-    <h2>Understanding Gold Market Prices</h2>
-    <p>Gold prices fluctuate based on global economic conditions, currency values, inflation rates, and market demand. Use our calculator to track the current value of your gold holdings and make informed decisions about buying or selling.</p>
-
-    <p><strong>Start calculating now</strong> - Enter your gold weight and purity above to get instant market value!</p>
+    <p><strong>Start calculating your gold value now!</strong></p>
   </main>
 </body>
 </html>
-  `);
+    `);
+  } catch (error) {
+    console.error('SEO Snapshot Error:', error);
+    res.status(500).send('<h1>Error loading calculator</h1>');
+  }
 });
 
 // ============================================
-// LIVE API ENDPOINTS - No cache for real-time data
+// API ENDPOINTS - 60 SECOND UPDATE
 // ============================================
 
-// Main gold price endpoint (LIVE DATA)
+// Main gold price endpoint
 app.get('/api/gold-prices', async (req, res) => {
-  // Fresh data headers - no caching
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
-  
+  res.setHeader('Access-Control-Allow-Origin', '*');
+
   try {
     const goldPrice = await fetchGoldPrice();
     res.status(200).json(goldPrice);
   } catch (error) {
+    console.error('API Error:', error);
     res.status(500).json({ error: 'Failed to fetch gold price' });
   }
 });
 
-// Configuration endpoint
+// Config endpoint - 60 SECONDS UPDATE INTERVAL
 app.get('/api/config', (req, res) => {
-  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-  res.status(200).json({
-    refreshIntervalMs: 600000,
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  
+  res.json({
+    refreshIntervalMs: 60000,        // ✅ 60 seconds (changed from 600000)
+    refreshIntervalSeconds: 60,       // ✅ 60 seconds
+    refreshIntervalMinutes: 1,        // ✅ 1 minute
     apiPlan: "railway",
-    refreshIntervalSeconds: 600,
-    refreshIntervalMinutes: 10
+    updateFrequency: "Every 60 seconds"
   });
 });
 
-// Backward compatibility endpoint (same as /api/gold-prices)
+// Backward compatibility
 app.get('/api/goldprices', async (req, res) => {
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
-  
+  res.setHeader('Access-Control-Allow-Origin', '*');
+
   try {
     const goldPrice = await fetchGoldPrice();
     res.status(200).json(goldPrice);
@@ -176,91 +190,124 @@ app.get('/api/goldprices', async (req, res) => {
 });
 
 // ============================================
-// HEALTH CHECK - Railway ke liye
+// HEALTH CHECK
 // ============================================
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    apiKey: GOLD_API_KEY ? 'Configured' : 'Missing',
+    updateInterval: '60 seconds'
+  });
 });
 
 // ============================================
-// STATIC FILES - Cache headers ke sath
+// SITEMAP & ROBOTS
 // ============================================
-app.use(express.static('public', {
-  maxAge: '1d', // 1 day cache for static assets
-  etag: true
-}));
+app.get('/sitemap.xml', (req, res) => {
+  res.set('Content-Type', 'application/xml');
+  res.send(`<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://gold-calculator-api-production.up.railway.app/</loc>
+    <changefreq>hourly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://gold-calculator-api-production.up.railway.app/seo-snapshot</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+</urlset>`);
+});
+
+app.get('/robots.txt', (req, res) => {
+  res.set('Content-Type', 'text/plain');
+  res.send(`User-agent: *
+Allow: /
+Sitemap: https://gold-calculator-api-production.up.railway.app/sitemap.xml`);
+});
 
 // ============================================
-// MAIN APP ROUTE
+// HOME ROUTE
 // ============================================
 app.get('/', (req, res) => {
   res.send(`
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gold Calculator Backend - Ready</title>
+  <title>Gold Calculator API - Ready ✅</title>
   <style>
-    body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; line-height: 1.6; }
+    body { font-family: Arial; max-width: 800px; margin: 50px auto; padding: 20px; }
     h1 { color: #d4af37; }
     .status { background: #d4f4dd; padding: 15px; border-radius: 5px; margin: 20px 0; }
-    .endpoint { background: #f4f4f4; padding: 10px; border-left: 4px solid #d4af37; margin: 10px 0; }
-    code { background: #333; color: #fff; padding: 2px 6px; border-radius: 3px; }
+    .endpoint { background: #f4f4f4; padding: 10px; margin: 10px 0; border-left: 4px solid #d4af37; }
+    code { background: #333; color: #fff; padding: 3px 8px; border-radius: 3px; }
   </style>
 </head>
 <body>
-  <h1>🏆 Gold Calculator Backend - SEO Optimized</h1>
-  
+  <h1>🏆 Gold Calculator API - Ready!</h1>
+
   <div class="status">
-    <strong>✅ Server Running Successfully!</strong><br>
-    Railway backend ready for deployment
+    <strong>✅ Server Running</strong><br>
+    Update Interval: <strong>60 seconds</strong><br>
+    API Key: <strong>${GOLD_API_KEY ? 'Configured' : 'Missing'}</strong>
   </div>
 
-  <h2>Available Endpoints:</h2>
-  
-  <div class="endpoint">
-    <strong>SEO Snapshot:</strong><br>
-    <code>GET /seo-snapshot</code><br>
-    → Google-optimized HTML with full content
-  </div>
+  <h2>Endpoints:</h2>
 
   <div class="endpoint">
-    <strong>Live Gold Prices:</strong><br>
     <code>GET /api/gold-prices</code><br>
-    → Real-time gold prices from goldprice.org (no cache)
+    Live gold prices (60 sec updates)
   </div>
 
   <div class="endpoint">
-    <strong>API Config:</strong><br>
     <code>GET /api/config</code><br>
-    → Refresh interval settings
+    Configuration settings
   </div>
 
   <div class="endpoint">
-    <strong>Health Check:</strong><br>
-    <code>GET /health</code><br>
-    → Server status
+    <code>GET /seo-snapshot</code><br>
+    SEO-optimized HTML snapshot
   </div>
 
-  <h2>Next Steps:</h2>
-  <ol>
-    <li>Deploy yeh code apne Railway app mein</li>
-    <li>Cloudflare Worker setup karo (cloudflare-worker.js file dekho)</li>
-    <li>Testing karo IMPLEMENTATION-GUIDE.md file ke hisaab se</li>
-  </ol>
+  <div class="endpoint">
+    <code>GET /health</code><br>
+    Health check
+  </div>
 
-  <p><a href="/seo-snapshot">→ SEO Snapshot Preview</a> | <a href="/api/gold-prices">→ Live Gold Prices</a> | <a href="/api/config">→ Config</a></p>
+  <p><a href="/api/gold-prices">→ Test Live Prices</a> | <a href="/api/config">→ View Config</a> | <a href="/health">→ Health</a></p>
 </body>
 </html>
   `);
 });
 
-// Server start
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ Gold Calculator Backend running on port ${PORT}`);
-  console.log(`📊 SEO Snapshot: http://localhost:${PORT}/seo-snapshot`);
-  console.log(`💰 Live Gold Prices: http://localhost:${PORT}/api/gold-prices`);
-  console.log(`⚙️  Config: http://localhost:${PORT}/api/config`);
+// ============================================
+// SERVER START - Railway compatible
+// ============================================
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log('='.repeat(50));
+  console.log('✅ Gold Calculator Backend - READY');
+  console.log('='.repeat(50));
+  console.log(`🚀 Server: http://localhost:${PORT}`);
+  console.log(`⏰ Update Interval: 60 seconds`);
+  console.log(`🔑 API Key: ${GOLD_API_KEY ? 'Configured' : 'Missing'}`);
+  console.log('='.repeat(50));
+  console.log('📊 Endpoints:');
+  console.log(`   /api/gold-prices - Live prices`);
+  console.log(`   /api/config - Configuration`);
+  console.log(`   /seo-snapshot - SEO HTML`);
+  console.log(`   /health - Health check`);
+  console.log('='.repeat(50));
 });
 
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully...');
+  server.close(() => {
+    console.log('✅ Server closed');
+    process.exit(0);
+  });
+});
+
+module.exports = app;
